@@ -9,7 +9,7 @@
 		"url": "https://ldtk.io"
 	},
 	"jsonVersion": "0.9.3",
-	"nextUid": 5,
+	"nextUid": 7,
 	"worldLayout": "Free",
 	"worldGridWidth": 256,
 	"worldGridHeight": 256,
@@ -70,7 +70,7 @@
 		}
 	], "entities": [
 		{
-			"identifier": "Player",
+			"identifier": "PlayerStart",
 			"uid": 3,
 			"tags": [],
 			"width": 16,
@@ -82,17 +82,63 @@
 			"lineOpacity": 1,
 			"hollow": false,
 			"color": "#94D9B3",
-			"renderMode": "Rectangle",
+			"renderMode": "Cross",
 			"showName": true,
 			"tilesetId": null,
 			"tileId": null,
-			"tileRenderMode": "FitInside",
-			"maxCount": 0,
+			"tileRenderMode": "Stretch",
+			"maxCount": 1,
 			"limitScope": "PerLevel",
 			"limitBehavior": "MoveLastOne",
 			"pivotX": 0,
 			"pivotY": 0,
 			"fieldDefs": []
+		},
+		{
+			"identifier": "Enemy",
+			"uid": 5,
+			"tags": [],
+			"width": 16,
+			"height": 16,
+			"resizableX": false,
+			"resizableY": false,
+			"keepAspectRatio": false,
+			"fillOpacity": 1,
+			"lineOpacity": 1,
+			"hollow": false,
+			"color": "#DE88D9",
+			"renderMode": "Cross",
+			"showName": true,
+			"tilesetId": null,
+			"tileId": null,
+			"tileRenderMode": "Stretch",
+			"maxCount": 0,
+			"limitScope": "PerLevel",
+			"limitBehavior": "MoveLastOne",
+			"pivotX": 0,
+			"pivotY": 0,
+			"fieldDefs": [
+				{
+					"identifier": "name",
+					"__type": "String",
+					"uid": 6,
+					"type": "F_String",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "ValueOnly",
+					"editorDisplayPos": "Above",
+					"editorAlwaysShow": false,
+					"editorCutLongValues": true,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null
+				}
+			]
 		}
 	], "tilesets": [
 		{
@@ -160,15 +206,115 @@
 					"gridTiles": [],
 					"entityInstances": [
 						{
-							"__identifier": "Player",
-							"__grid": [11,8],
+							"__identifier": "PlayerStart",
+							"__grid": [3,8],
 							"__pivot": [0,0],
 							"__tile": null,
 							"width": 16,
 							"height": 16,
 							"defUid": 3,
-							"px": [176,128],
+							"px": [48,128],
 							"fieldInstances": []
+						},
+						{
+							"__identifier": "Enemy",
+							"__grid": [12,8],
+							"__pivot": [0,0],
+							"__tile": null,
+							"width": 16,
+							"height": 16,
+							"defUid": 5,
+							"px": [192,128],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__value": "test",
+								"__type": "String",
+								"defUid": 6,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["test"]
+								}]
+							}]
+						},
+						{
+							"__identifier": "Enemy",
+							"__grid": [17,8],
+							"__pivot": [0,0],
+							"__tile": null,
+							"width": 16,
+							"height": 16,
+							"defUid": 5,
+							"px": [272,128],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__value": "test",
+								"__type": "String",
+								"defUid": 6,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["test"]
+								}]
+							}]
+						},
+						{
+							"__identifier": "Enemy",
+							"__grid": [21,8],
+							"__pivot": [0,0],
+							"__tile": null,
+							"width": 16,
+							"height": 16,
+							"defUid": 5,
+							"px": [336,128],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__value": "test",
+								"__type": "String",
+								"defUid": 6,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["test"]
+								}]
+							}]
+						},
+						{
+							"__identifier": "Enemy",
+							"__grid": [23,8],
+							"__pivot": [0,0],
+							"__tile": null,
+							"width": 16,
+							"height": 16,
+							"defUid": 5,
+							"px": [368,128],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__value": "takechiyo",
+								"__type": "String",
+								"defUid": 6,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["takechiyo"]
+								}]
+							}]
+						},
+						{
+							"__identifier": "Enemy",
+							"__grid": [15,8],
+							"__pivot": [0,0],
+							"__tile": null,
+							"width": 16,
+							"height": 16,
+							"defUid": 5,
+							"px": [240,128],
+							"fieldInstances": [{
+								"__identifier": "name",
+								"__value": "test",
+								"__type": "String",
+								"defUid": 6,
+								"realEditorValues": [{
+									"id": "V_String",
+									"params": ["test"]
+								}]
+							}]
 						}
 					]
 				},
@@ -195,6 +341,16 @@
 					"seed": 1924535,
 					"overrideTilesetUid": null,
 					"gridTiles": [
+						{ "px": [16,80], "src": [16,0], "f": 0, "t": 1, "d": [156] },
+						{ "px": [32,80], "src": [16,0], "f": 0, "t": 1, "d": [157] },
+						{ "px": [48,80], "src": [16,0], "f": 0, "t": 1, "d": [158] },
+						{ "px": [64,80], "src": [16,0], "f": 0, "t": 1, "d": [159] },
+						{ "px": [80,80], "src": [16,0], "f": 0, "t": 1, "d": [160] },
+						{ "px": [16,96], "src": [16,16], "f": 0, "t": 17, "d": [187] },
+						{ "px": [32,96], "src": [16,16], "f": 0, "t": 17, "d": [188] },
+						{ "px": [48,96], "src": [16,16], "f": 0, "t": 17, "d": [189] },
+						{ "px": [64,96], "src": [16,16], "f": 0, "t": 17, "d": [190] },
+						{ "px": [80,96], "src": [16,16], "f": 0, "t": 17, "d": [191] },
 						{ "px": [0,128], "src": [16,0], "f": 0, "t": 1, "d": [248] },
 						{ "px": [16,128], "src": [16,0], "f": 0, "t": 1, "d": [249] },
 						{ "px": [32,128], "src": [16,0], "f": 0, "t": 1, "d": [250] },

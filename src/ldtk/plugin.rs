@@ -26,6 +26,7 @@ impl Plugin for LdtkPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Ldtk>()
             .init_asset_loader::<LdtkLoader>()
+            .add_event::<LdtkEvent>()
             .add_system(on_asset_event_system);
     }
 }
@@ -37,6 +38,12 @@ pub struct Ldtk {
     pub data: LdtkData,
 }
 
+#[derive(Debug)]
+pub enum LdtkEvent {
+    SpawnPlayer(Vec3),
+    SpawnEnemy { name: String, position: Vec3 },
+}
+
 impl Ldtk {
     fn load(
         &self,
@@ -45,6 +52,7 @@ impl Ldtk {
         texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
         commands: &mut Commands,
         rapier_config: &Res<RapierConfiguration>,
+        event_writer: &mut EventWriter<LdtkEvent>,
     ) -> Result<()> {
         let level = self
             .data
@@ -147,128 +155,166 @@ impl Ldtk {
 
         // layers
         for layer_instance in layer_instances {
-            if let Some(tileset_def_uid) = layer_instance.tileset_def_uid {
-                let texture_atlas_handle = texture_atlas_handles
-                    .get(&tileset_def_uid)
-                    .with_context(|| {
-                        format!("failed to find tile identifier: {}", tileset_def_uid)
-                    })?;
-
-                let grid_tile_offset = Vec3::new(
-                    layer_instance.grid_size as f32,
-                    -layer_instance.grid_size as f32,
-                    0.0,
-                ) * 0.5;
-
-                // create collision bundles with debug geometry
-                let collisions = tileset_collisions
-                    .get(&tileset_def_uid)
-                    .and_then(|tileset_collision| {
-                        let polygons = layer_instance
-                            .grid_tiles
-                            .iter()
-                            .filter_map(|grid_tile| {
-                                let grid_tile_position =
-                                    Vec2::new(grid_tile.px[0] as f32, -grid_tile.px[1] as f32);
-                                tileset_collision.get(&grid_tile.t).map(|collision| {
-                                    collision
-                                        .iter()
-                                        .map(|v| *v + grid_tile_position)
-                                        .collect::<Vec<_>>()
-                                })
-                            })
-                            .collect::<Vec<_>>();
-                        merge_polygons(&polygons)
-                    })
-                    .map(|polygons| {
-                        polygons
-                            .into_iter()
-                            .map(|polygon| {
-                                let vertices = polygon
+            match layer_instance.layer_instance_type.as_str() {
+                "Entities" => {
+                    for entity_instance in &layer_instance.entity_instances {
+                        let position = Vec3::new(
+                            entity_instance.px[0] as f32,
+                            -entity_instance.px[1] as f32,
+                            0.0,
+                        ) + level_position;
+                        match entity_instance.identifier.as_str() {
+                            "PlayerStart" => {
+                                event_writer.send(LdtkEvent::SpawnPlayer(position));
+                            }
+                            "Enemy" => {
+                                let name = entity_instance
+                                    .field_instances
                                     .iter()
-                                    .map(|v| point!(v.x, v.y) / rapier_config.scale)
-                                    .collect::<Vec<_>>();
-                                let indices = (0..polygon.len()).collect::<Vec<_>>();
-                                let mut indices = indices
-                                    .iter()
-                                    .zip(indices.iter().skip(1))
-                                    .map(|(a, b)| [*a as u32, *b as u32])
-                                    .collect::<Vec<_>>();
-                                indices.push([polygon.len() as u32 - 1, 0]);
-                                (
-                                    ColliderBundle {
-                                        shape: ColliderShape::convex_decomposition_with_params(
-                                            vertices.as_slice(),
-                                            indices.as_slice(),
-                                            &VHACDParameters {
-                                                concavity: 0.005,
-                                                ..Default::default()
-                                            },
+                                    .find(|field_instance| field_instance.identifier == "name")
+                                    .and_then(|field_instance| field_instance.value.as_ref())
+                                    .and_then(|field| field.as_str())
+                                    .map(|s| s.to_string())
+                                    .with_context(|| {
+                                        format!(
+                                            "no name field: {:?}",
+                                            entity_instance.field_instances
                                         )
-                                        .into(),
-                                        material: COLLIDER_MATERIAL.into(),
-                                        position: (level_position / rapier_config.scale).into(),
+                                    })?;
+                                event_writer.send(LdtkEvent::SpawnEnemy { name, position });
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                "Tiles" if layer_instance.tileset_def_uid.is_some() => {
+                    let tileset_def_uid = layer_instance.tileset_def_uid.unwrap();
+                    let texture_atlas_handle = texture_atlas_handles
+                        .get(&tileset_def_uid)
+                        .with_context(|| {
+                            format!("failed to find tile identifier: {}", tileset_def_uid)
+                        })?;
+
+                    let grid_tile_offset = Vec3::new(
+                        layer_instance.grid_size as f32,
+                        -layer_instance.grid_size as f32,
+                        0.0,
+                    ) * 0.5;
+
+                    // create collision bundles with debug geometry
+                    let collisions = tileset_collisions
+                        .get(&tileset_def_uid)
+                        .and_then(|tileset_collision| {
+                            let polygons = layer_instance
+                                .grid_tiles
+                                .iter()
+                                .filter_map(|grid_tile| {
+                                    let grid_tile_position =
+                                        Vec2::new(grid_tile.px[0] as f32, -grid_tile.px[1] as f32);
+                                    tileset_collision.get(&grid_tile.t).map(|collision| {
+                                        collision
+                                            .iter()
+                                            .map(|v| *v + grid_tile_position)
+                                            .collect::<Vec<_>>()
+                                    })
+                                })
+                                .collect::<Vec<_>>();
+                            merge_polygons(&polygons)
+                        })
+                        .map(|polygons| {
+                            polygons
+                                .into_iter()
+                                .map(|polygon| {
+                                    let vertices = polygon
+                                        .iter()
+                                        .map(|v| point!(v.x, v.y) / rapier_config.scale)
+                                        .collect::<Vec<_>>();
+                                    let indices = (0..polygon.len()).collect::<Vec<_>>();
+                                    let mut indices = indices
+                                        .iter()
+                                        .zip(indices.iter().skip(1))
+                                        .map(|(a, b)| [*a as u32, *b as u32])
+                                        .collect::<Vec<_>>();
+                                    indices.push([polygon.len() as u32 - 1, 0]);
+                                    (
+                                        ColliderBundle {
+                                            shape: ColliderShape::convex_decomposition_with_params(
+                                                vertices.as_slice(),
+                                                indices.as_slice(),
+                                                &VHACDParameters {
+                                                    concavity: 0.0025,
+                                                    //convex_hull_approximation: false,
+                                                    ..Default::default()
+                                                },
+                                            )
+                                            .into(),
+                                            material: COLLIDER_MATERIAL.into(),
+                                            position: (level_position / rapier_config.scale).into(),
+                                            ..Default::default()
+                                        },
+                                        GeometryBuilder::build_as(
+                                            &shapes::Polygon {
+                                                points: polygon,
+                                                closed: true,
+                                            },
+                                            DrawMode::Outlined {
+                                                fill_mode: FillMode::color(Color::rgba(
+                                                    1.0, 1.0, 1.0, 0.2,
+                                                )),
+                                                outline_mode: StrokeMode::new(
+                                                    Color::rgba(1.0, 1.0, 1.0, 1.0),
+                                                    1.0,
+                                                ),
+                                            },
+                                            Transform::from_xyz(0.0, 0.0, Z_COLLISION),
+                                        ),
+                                    )
+                                })
+                                .collect::<Vec<_>>()
+                        });
+
+                    // spawn layer
+                    commands
+                        .spawn()
+                        .insert(ColliderPositionComponent(
+                            ColliderPosition::from(level_position / rapier_config.scale).into(),
+                        ))
+                        .insert(ColliderPositionSync::Discrete)
+                        .insert(GlobalTransform::identity())
+                        .with_children(|parent| {
+                            // spawn tiles
+                            for grid_tile in &layer_instance.grid_tiles {
+                                let grid_tile_position =
+                                    Vec3::new(grid_tile.px[0] as f32, -grid_tile.px[1] as f32, 1.0)
+                                        + grid_tile_offset;
+                                let transform = Transform::from_translation(grid_tile_position);
+                                parent.spawn_bundle(SpriteSheetBundle {
+                                    texture_atlas: texture_atlas_handle.clone(),
+                                    sprite: TextureAtlasSprite {
+                                        index: grid_tile.t as usize,
                                         ..Default::default()
                                     },
-                                    GeometryBuilder::build_as(
-                                        &shapes::Polygon {
-                                            points: polygon,
-                                            closed: true,
-                                        },
-                                        DrawMode::Outlined {
-                                            fill_mode: FillMode::color(Color::rgba(
-                                                1.0, 1.0, 1.0, 0.2,
-                                            )),
-                                            outline_mode: StrokeMode::new(
-                                                Color::rgba(1.0, 1.0, 1.0, 1.0),
-                                                1.0,
-                                            ),
-                                        },
-                                        Transform::from_xyz(0.0, 0.0, Z_COLLISION),
-                                    ),
-                                )
-                            })
-                            .collect::<Vec<_>>()
-                    });
-
-                // spawn layer
-                commands
-                    .spawn()
-                    .insert(ColliderPositionComponent(
-                        ColliderPosition::from(level_position / rapier_config.scale).into(),
-                    ))
-                    .insert(ColliderPositionSync::Discrete)
-                    .insert(GlobalTransform::identity())
-                    .with_children(|parent| {
-                        // spawn tiles
-                        for grid_tile in &layer_instance.grid_tiles {
-                            let grid_tile_position =
-                                Vec3::new(grid_tile.px[0] as f32, -grid_tile.px[1] as f32, 1.0)
-                                    + grid_tile_offset;
-                            let transform = Transform::from_translation(grid_tile_position);
-                            parent.spawn_bundle(SpriteSheetBundle {
-                                texture_atlas: texture_atlas_handle.clone(),
-                                sprite: TextureAtlasSprite {
-                                    index: grid_tile.t as usize,
+                                    transform,
                                     ..Default::default()
-                                },
-                                transform,
-                                ..Default::default()
-                            });
-                        }
-                        // spawn collision
-                        if let Some(collisions) = collisions {
-                            for (collision, geometry) in collisions {
-                                parent
-                                    .spawn_bundle(geometry)
-                                    .insert(DebugTarget)
-                                    .insert(Visibility { is_visible: false });
-                                parent
-                                    .spawn_bundle(collision)
-                                    .insert(ColliderPositionSync::Discrete);
+                                });
                             }
-                        }
-                    });
+                            // spawn collision
+                            if let Some(collisions) = collisions {
+                                for (collision, geometry) in collisions {
+                                    parent
+                                        .spawn_bundle(geometry)
+                                        .insert(DebugTarget)
+                                        .insert(Visibility { is_visible: false });
+                                    parent
+                                        .spawn_bundle(collision)
+                                        .insert(ColliderPositionSync::Discrete);
+                                }
+                            }
+                        });
+                }
+                _ => {
+                    todo!("not implemented");
+                }
             }
         }
         Ok(())
@@ -306,6 +352,7 @@ fn on_asset_event_system(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut commands: Commands,
     rapier_config: Res<RapierConfiguration>,
+    mut event_writer: EventWriter<LdtkEvent>,
 ) {
     for event in event_asset.iter() {
         match event {
@@ -318,6 +365,7 @@ fn on_asset_event_system(
                             &mut texture_atlases,
                             &mut commands,
                             &rapier_config,
+                            &mut event_writer,
                         )
                         .unwrap();
                     }
